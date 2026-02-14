@@ -4,7 +4,7 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
     CLOUD_COUNT, CLOUD_COLOR, CLOUD_PARALLAX,
     TREE_COUNT, TREE_TRUNK_COLOR, TREE_LEAF_COLOR,
-    WORLD_WIDTH,
+    WORLD_WIDTH, PITS, PIT_WIDTH,
 )
 
 
@@ -27,7 +27,11 @@ class Background:
         trees = []
         ground_top = SCREEN_HEIGHT - GROUND_HEIGHT
         for _ in range(TREE_COUNT):
-            x = random.randint(50, WORLD_WIDTH)
+            while True:
+                x = random.randint(50, WORLD_WIDTH)
+                on_pit = any(px <= x <= px + PIT_WIDTH for px in PITS)
+                if not on_pit:
+                    break
             trunk_h = random.randint(30, 50)
             leaf_r = random.randint(14, 22)
             trees.append((x, ground_top, trunk_h, leaf_r))

@@ -6,6 +6,7 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
     INVINCIBLE_DURATION, BLINK_INTERVAL,
     ATTACK_COOLDOWN, POOP_HOLD_TIME,
+    PITS, PIT_WIDTH,
 )
 
 
@@ -79,8 +80,14 @@ class Player(pygame.sprite.Sprite):
                     self.on_ground = True
                     self.jump_count = 0
 
-        # Land on ground
-        if self.rect.y >= self.ground_y:
+        # Check if over pit (only when fully inside the pit)
+        over_pit = any(
+            self.rect.left >= px and self.rect.right <= px + PIT_WIDTH
+            for px in PITS
+        )
+
+        # Land on ground (skip if over pit)
+        if not over_pit and self.rect.y >= self.ground_y:
             self.rect.y = self.ground_y
             self.vel_y = 0
             self.on_ground = True

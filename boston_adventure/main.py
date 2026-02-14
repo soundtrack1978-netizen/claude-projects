@@ -9,6 +9,7 @@ from settings import (
     KNOCKBACK_DISTANCE, KNOCKBACK_SPEED, KNOCKBACK_JUMP,
     HEART_DROP_CHANCE, POOP_WIDTH, PLAYER_WIDTH,
     WALL1_X, WALL2_X, WALL_HEIGHT, WALL2_HEIGHT,
+    PITS, PIT_WIDTH,
 )
 from player import Player
 from background import Background
@@ -122,6 +123,10 @@ class Game:
             self.camera_x = max(0, self.player.rect.x - CAMERA_OFFSET_X)
             return
         self.player.update(self.wall_group)
+        # Fell into pit
+        if self.player.rect.top > SCREEN_HEIGHT:
+            self._start_death()
+            return
         self.enemies.update()
         self.items.update()
         self.poops.update()
@@ -212,9 +217,22 @@ class Game:
         self.screen.fill(SKY_BLUE)
         # 2. Clouds (parallax) + 3. Trees
         self.background.draw(self.screen, self.camera_x)
-        # 4. Ground
-        ground_rect = pygame.Rect(0, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT)
-        pygame.draw.rect(self.screen, GROUND_GREEN, ground_rect)
+        # 4. Ground (with pit gaps)
+        ground_y = SCREEN_HEIGHT - GROUND_HEIGHT
+        # Build sorted list of pit screen positions
+        pit_edges = []
+        for px in sorted(PITS):
+            pit_edges.append((px - self.camera_x, px - self.camera_x + PIT_WIDTH))
+        # Draw ground segments between pits
+        seg_start = 0
+        for pit_left, pit_right in pit_edges:
+            if pit_left > seg_start:
+                pygame.draw.rect(self.screen, GROUND_GREEN,
+                                 (seg_start, ground_y, pit_left - seg_start, GROUND_HEIGHT))
+            seg_start = pit_right
+        if seg_start < SCREEN_WIDTH:
+            pygame.draw.rect(self.screen, GROUND_GREEN,
+                             (seg_start, ground_y, SCREEN_WIDTH - seg_start, GROUND_HEIGHT))
         # 5. Walls
         for wall in self.wall_group:
             wx = wall.rect.x - self.camera_x
