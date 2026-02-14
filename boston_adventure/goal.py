@@ -19,36 +19,44 @@ class Goal(pygame.sprite.Sprite):
         house_w = int(raw.get_width() * ratio)
         house_img = pygame.transform.scale(raw, (house_w, GOAL_HEIGHT))
 
-        # Build combined image: GOAL! text + house + 3 people
-        people_area = 50
-        total_w = house_w + people_area
+        # Build image: GOAL! text + house (no people - drawn separately)
         text_h = 30
         total_h = GOAL_HEIGHT + text_h
-        self.image = pygame.Surface((total_w, total_h), pygame.SRCALPHA)
+        self.image = pygame.Surface((house_w, total_h), pygame.SRCALPHA)
 
         # "GOAL!" text above house
         font = pygame.font.SysFont(None, 28)
-        goal_text = font.render("GOAL!", True, (255, 50, 50))
+        goal_text = font.render("My Home", True, (255, 50, 50))
         tx = house_w // 2 - goal_text.get_width() // 2
         self.image.blit(goal_text, (tx, 0))
 
         # House
         self.image.blit(house_img, (0, text_h))
 
-        # 3 people to the right of the house
-        ground_bottom = text_h + GOAL_HEIGHT
-        colors = [(200, 100, 100), (100, 150, 200), (150, 200, 100)]
-        for i, color in enumerate(colors):
-            px = house_w + 8 + i * 14
-            py = ground_bottom - PERSON_HEIGHT
-            # Head
-            pygame.draw.circle(self.image, (240, 200, 160), (px + 4, py + 3), 3)
-            # Body
-            pygame.draw.rect(self.image, color, (px + 1, py + 6, 6, 8))
-            # Legs
-            pygame.draw.rect(self.image, (80, 80, 80), (px + 1, py + 14, 2, 6))
-            pygame.draw.rect(self.image, (80, 80, 80), (px + 5, py + 14, 2, 6))
-
         self.rect = self.image.get_rect()
         self.rect.x = GOAL_X
-        self.rect.bottom = SCREEN_HEIGHT - GROUND_HEIGHT
+        self.rect.bottom = SCREEN_HEIGHT - GROUND_HEIGHT + 14  # snug to ground
+
+        # People data (world coordinates, drawn by main.py)
+        self.people_colors = [(200, 100, 100), (100, 150, 200), (150, 200, 100)]
+        ground_y = SCREEN_HEIGHT - GROUND_HEIGHT - PERSON_HEIGHT
+        self.people = []
+        for i, color in enumerate(self.people_colors):
+            px = GOAL_X + house_w + 8 + i * 14
+            self.people.append({
+                "x": px,
+                "ground_y": ground_y,
+                "y": float(ground_y),
+                "color": color,
+            })
+
+    @staticmethod
+    def draw_person(surface, x, y, color):
+        """Draw a small person at the given screen position."""
+        # Head
+        pygame.draw.circle(surface, (240, 200, 160), (x + 4, int(y) + 3), 3)
+        # Body
+        pygame.draw.rect(surface, color, (x + 1, int(y) + 6, 6, 8))
+        # Legs
+        pygame.draw.rect(surface, (80, 80, 80), (x + 1, int(y) + 14, 2, 6))
+        pygame.draw.rect(surface, (80, 80, 80), (x + 5, int(y) + 14, 2, 6))

@@ -63,7 +63,9 @@ class Game:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if self.state in ("game_over", "clear") and event.key == pygame.K_r:
+                if self.state == "celebrating":
+                    self.state = "clear"
+                elif self.state in ("game_over", "clear") and event.key == pygame.K_r:
                     self._restart()
 
     def _restart(self):
@@ -110,6 +112,9 @@ class Game:
         self.death_y = float(self.player.rect.y)
 
     def _update(self):
+        if self.state == "celebrating":
+            self._update_celebration()
+            return
         if self.state == "dying":
             self._update_death()
             return
@@ -190,11 +195,35 @@ class Game:
         for effect in self.effects:
             effect.update()
         self.effects = [e for e in self.effects if e.alive]
-        # Check goal
-        if pygame.sprite.spritecollide(self.player, self.goal_group, False):
-            self.state = "clear"
+        # Check goal (player must fully overlap the house)
+        if self.goal.rect.contains(self.player.rect):
+            self.state = "celebrating"
+            self.celebrate_start = pygame.time.get_ticks()
+            # Set up staggered jump timing for each person
+            for i, person in enumerate(self.goal.people):
+                person["jump_delay"] = i * 300  # 0ms, 300ms, 600ms
+                person["vel_y"] = 0
+                person["y"] = person["ground_y"]
         # Camera follows player
         self.camera_x = max(0, self.player.rect.x - CAMERA_OFFSET_X)
+
+    def _update_celebration(self):
+        elapsed = pygame.time.get_ticks() - self.celebrate_start
+        # Animate people jumping with staggered timing
+        for person in self.goal.people:
+            t = elapsed - person["jump_delay"]
+            if t < 0:
+                continue
+            if person["y"] >= person["ground_y"] and person["vel_y"] >= 0:
+                # Jump again periodically (every ~400ms after delay)
+                cycle = t % 400
+                if cycle < 20:
+                    person["vel_y"] = -6
+            person["vel_y"] += 0.5
+            person["y"] += person["vel_y"]
+            if person["y"] >= person["ground_y"]:
+                person["y"] = person["ground_y"]
+                person["vel_y"] = 0
 
     def _update_death(self):
         self.death_vel_y += GRAVITY
@@ -258,6 +287,16 @@ class Game:
         gx = self.goal.rect.x - self.camera_x
         if -self.goal.rect.width < gx < SCREEN_WIDTH + self.goal.rect.width:
             self.screen.blit(self.goal.image, (gx, self.goal.rect.y))
+        # 6a. People next to goal
+        for person in self.goal.people:
+            sx = person["x"] - self.camera_x
+            if -20 < sx < SCREEN_WIDTH + 20:
+                Goal.draw_person(self.screen, int(sx), person["y"], person["color"])
+                # Show "Lucas!" when person is jumping during celebration
+                if self.state == "celebrating" and person["y"] < person["ground_y"]:
+                    font = pygame.font.SysFont(None, 18)
+                    txt = font.render("Lucas!", True, (255, 255, 255))
+                    self.screen.blit(txt, (int(sx) - 6, int(person["y"]) - 14))
         # 6. Items
         for item in self.items:
             if item.visible:
