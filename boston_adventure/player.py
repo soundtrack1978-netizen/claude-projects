@@ -2,7 +2,8 @@ import os
 import pygame
 from settings import (
     PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
-    GRAVITY, JUMP_POWER, SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
+    GRAVITY, JUMP_POWER, DOUBLE_JUMP_POWER, MAX_JUMPS,
+    SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
     INVINCIBLE_DURATION, BLINK_INTERVAL,
 )
 
@@ -22,6 +23,8 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = self.ground_y
         self.vel_y = 0
         self.on_ground = True
+        self.jump_count = 0
+        self.space_pressed_last = False
         self.start_x = 100
         self.invincible = False
         self.invincible_start = 0
@@ -36,10 +39,18 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT]:
             self.rect.x += PLAYER_SPEED
 
-        # Jump
-        if keys[pygame.K_SPACE] and self.on_ground:
-            self.vel_y = JUMP_POWER
-            self.on_ground = False
+        # Jump (trigger on new press only, not hold)
+        # Support both Space and Up arrow to avoid IME conflict
+        space_now = keys[pygame.K_SPACE] or keys[pygame.K_UP]
+        if space_now and not self.space_pressed_last:
+            if self.on_ground:
+                self.vel_y = JUMP_POWER
+                self.on_ground = False
+                self.jump_count = 1
+            elif self.jump_count < MAX_JUMPS:
+                self.vel_y = DOUBLE_JUMP_POWER
+                self.jump_count += 1
+        self.space_pressed_last = space_now
 
         # Gravity
         self.vel_y += GRAVITY
@@ -50,6 +61,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.y = self.ground_y
             self.vel_y = 0
             self.on_ground = True
+            self.jump_count = 0
 
         # Invincibility timer and blink
         if self.invincible:
