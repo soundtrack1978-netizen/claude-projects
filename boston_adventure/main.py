@@ -7,14 +7,14 @@ from settings import (
     STOMP_BOUNCE, PLAYER_LIVES, GRAVITY, BLACK, WHITE,
     DEATH_BOUNCE, DEATH_ROTATION_SPEED, BLACKOUT_DURATION,
     KNOCKBACK_DISTANCE, KNOCKBACK_SPEED, KNOCKBACK_JUMP,
-    HEART_DROP_CHANCE,
+    HEART_DROP_CHANCE, POOP_WIDTH, PLAYER_WIDTH,
     WALL1_X, WALL2_X, WALL_HEIGHT, WALL2_HEIGHT,
 )
 from player import Player
 from background import Background
 from enemy import create_enemies
 from goal import Goal
-from item import HeartItem
+from item import HeartItem, PoopItem
 from wall import Wall
 from effect import SparkleEffect, GasEffect
 from ui import draw_lives, draw_game_over
@@ -37,6 +37,7 @@ class Game:
             Wall(WALL2_X, WALL2_HEIGHT),
         )
         self.items = pygame.sprite.Group()
+        self.poops = pygame.sprite.Group()
         self.effects = []
         self.camera_x = 0
         self.lives = PLAYER_LIVES
@@ -73,6 +74,7 @@ class Game:
             Wall(WALL2_X, WALL2_HEIGHT),
         )
         self.items = pygame.sprite.Group()
+        self.poops = pygame.sprite.Group()
         self.effects = []
         self.background = Background()
         self.camera_x = 0
@@ -122,12 +124,30 @@ class Game:
         self.player.update(self.wall_group)
         self.enemies.update()
         self.items.update()
+        self.poops.update()
         self._check_collisions()
+        # Poop attack (2s hold)
+        if self.player.pooping:
+            self.player.pooping = False
+            poop = PoopItem(self.player.rect.left - POOP_WIDTH, self.player.rect.bottom)
+            self.poops.add(poop)
+        # Poop vs enemies (stationary or flying)
+        for poop in self.poops:
+            for enemy in pygame.sprite.spritecollide(poop, self.enemies, False):
+                if random.random() < HEART_DROP_CHANCE:
+                    self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
+                enemy.kill()
         # Fart attack
         if self.player.attacking:
             self.player.attacking = False
             gas = GasEffect(self.player.rect.left, self.player.rect.centery)
             self.effects.append(gas)
+            # Fart hits poop → launch it (only if right behind player)
+            for poop in self.poops:
+                if not poop.flying:
+                    dist = self.player.rect.left - poop.rect.right
+                    if 0 <= dist <= PLAYER_WIDTH:
+                        poop.launch()
             # Hit enemies in gas range
             for enemy in list(self.enemies):
                 if gas.hit_rect.colliderect(enemy.rect):
@@ -210,7 +230,12 @@ class Game:
                 ix = item.rect.x - self.camera_x
                 if -item.rect.width < ix < SCREEN_WIDTH + item.rect.width:
                     self.screen.blit(item.image, (ix, item.rect.y))
-        # 7. Enemies
+        # 7. Poops
+        for poop in self.poops:
+            px = poop.rect.x - self.camera_x
+            if -poop.rect.width < px < SCREEN_WIDTH + poop.rect.width:
+                self.screen.blit(poop.image, (px, poop.rect.y))
+        # 8. Enemies
         for enemy in self.enemies:
             ex = enemy.rect.x - self.camera_x
             if -enemy.rect.width < ex < SCREEN_WIDTH + enemy.rect.width:

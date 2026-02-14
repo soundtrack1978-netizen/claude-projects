@@ -5,7 +5,7 @@ from settings import (
     GRAVITY, JUMP_POWER, DOUBLE_JUMP_POWER, MAX_JUMPS,
     SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
     INVINCIBLE_DURATION, BLINK_INTERVAL,
-    ATTACK_COOLDOWN,
+    ATTACK_COOLDOWN, POOP_HOLD_TIME,
 )
 
 
@@ -33,6 +33,8 @@ class Player(pygame.sprite.Sprite):
         self.attacking = False
         self.last_attack_time = 0
         self.down_pressed_last = False
+        self.down_hold_start = 0
+        self.pooping = False
 
     def update(self, walls=None):
         keys = pygame.key.get_pressed()
@@ -84,13 +86,22 @@ class Player(pygame.sprite.Sprite):
             self.on_ground = True
             self.jump_count = 0
 
-        # Attack (down key, with cooldown)
+        # Attack (down key: tap = fart, hold 3s = poop)
         down_now = keys[pygame.K_DOWN]
         now = pygame.time.get_ticks()
         if down_now and not self.down_pressed_last:
-            if now - self.last_attack_time >= ATTACK_COOLDOWN:
+            # Start holding
+            self.down_hold_start = now
+        if down_now and self.down_hold_start > 0:
+            if now - self.down_hold_start >= POOP_HOLD_TIME:
+                self.pooping = True
+                self.down_hold_start = 0  # reset so it doesn't repeat
+        if not down_now and self.down_pressed_last:
+            # Released: if held less than 3s, do fart
+            if self.down_hold_start > 0 and now - self.last_attack_time >= ATTACK_COOLDOWN:
                 self.attacking = True
                 self.last_attack_time = now
+            self.down_hold_start = 0
         self.down_pressed_last = down_now
 
         # Invincibility timer and blink
