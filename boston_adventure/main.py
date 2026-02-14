@@ -8,7 +8,7 @@ from settings import (
     DEATH_BOUNCE, DEATH_ROTATION_SPEED, BLACKOUT_DURATION,
     KNOCKBACK_DISTANCE, KNOCKBACK_SPEED, KNOCKBACK_JUMP,
     HEART_DROP_CHANCE, POOP_WIDTH, PLAYER_WIDTH,
-    WALL1_X, WALL2_X, WALL_HEIGHT, WALL2_HEIGHT,
+    WALL1_X, WALL2_X, WALL_HEIGHT, WALL2_HEIGHT, WALL3_X,
     PITS, PIT_WIDTH,
 )
 from player import Player
@@ -36,10 +36,12 @@ class Game:
         self.wall_group = pygame.sprite.Group(
             Wall(WALL1_X),
             Wall(WALL2_X, WALL2_HEIGHT),
+            Wall(WALL3_X),
         )
         self.items = pygame.sprite.Group()
         self.poops = pygame.sprite.Group()
         self.effects = []
+        self.dying_enemies = []
         self.camera_x = 0
         self.lives = PLAYER_LIVES
         self.state = "playing"
@@ -73,10 +75,12 @@ class Game:
         self.wall_group = pygame.sprite.Group(
             Wall(WALL1_X),
             Wall(WALL2_X, WALL2_HEIGHT),
+            Wall(WALL3_X),
         )
         self.items = pygame.sprite.Group()
         self.poops = pygame.sprite.Group()
         self.effects = []
+        self.dying_enemies = []
         self.background = Background()
         self.camera_x = 0
         self.lives = PLAYER_LIVES
@@ -85,6 +89,19 @@ class Game:
         self.knockback_dir = 0
         self.knockback_vel_y = 0
         self.knockback_y = 0.0
+
+    def _kill_enemy(self, enemy):
+        """Kill enemy with rotation + fall animation."""
+        self.dying_enemies.append({
+            "image": enemy.image.copy(),
+            "x": enemy.rect.centerx,
+            "y": float(enemy.rect.y),
+            "vel_y": DEATH_BOUNCE,
+            "angle": 0,
+        })
+        if random.random() < HEART_DROP_CHANCE:
+            self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
+        enemy.kill()
 
     def _start_death(self):
         self.state = "dying"
@@ -139,9 +156,7 @@ class Game:
         # Poop vs enemies (stationary or flying)
         for poop in self.poops:
             for enemy in pygame.sprite.spritecollide(poop, self.enemies, False):
-                if random.random() < HEART_DROP_CHANCE:
-                    self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
-                enemy.kill()
+                self._kill_enemy(enemy)
         # Fart attack
         if self.player.attacking:
             self.player.attacking = False
@@ -156,9 +171,7 @@ class Game:
             # Hit enemies in gas range
             for enemy in list(self.enemies):
                 if gas.hit_rect.colliderect(enemy.rect):
-                    if random.random() < HEART_DROP_CHANCE:
-                        self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
-                    enemy.kill()
+                    self._kill_enemy(enemy)
         # Item pickup
         for item in pygame.sprite.spritecollide(self.player, self.items, False):
             if not item.collected and item.pickable:
@@ -167,6 +180,12 @@ class Game:
                 self.effects.append(SparkleEffect(
                     self.player.rect.centerx, self.player.rect.centery,
                 ))
+        # Update dying enemies
+        for de in self.dying_enemies:
+            de["vel_y"] += GRAVITY
+            de["y"] += de["vel_y"]
+            de["angle"] += DEATH_ROTATION_SPEED
+        self.dying_enemies = [de for de in self.dying_enemies if de["y"] < SCREEN_HEIGHT + 50]
         # Update effects
         for effect in self.effects:
             effect.update()
@@ -191,10 +210,7 @@ class Game:
         for enemy in hits:
             # Stomp: player is falling and feet are above enemy's mid-point
             if self.player.vel_y > 0 and self.player.rect.bottom <= enemy.rect.centery + 5:
-                # Random heart drop
-                if random.random() < HEART_DROP_CHANCE:
-                    self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
-                enemy.kill()
+                self._kill_enemy(enemy)
                 self.player.vel_y = STOMP_BOUNCE
             elif not self.player.invincible:
                 # Knockback direction: away from enemy
@@ -258,6 +274,12 @@ class Game:
             ex = enemy.rect.x - self.camera_x
             if -enemy.rect.width < ex < SCREEN_WIDTH + enemy.rect.width:
                 self.screen.blit(enemy.image, (ex, enemy.rect.y))
+        # 8b. Dying enemies (rotating + falling)
+        for de in self.dying_enemies:
+            rotated = pygame.transform.rotate(de["image"], de["angle"])
+            rx = de["x"] - self.camera_x
+            rot_rect = rotated.get_rect(center=(rx, de["y"] + de["image"].get_height() // 2))
+            self.screen.blit(rotated, rot_rect)
         # 6. Player (foreground)
         if self.state == "dying":
             # Rotating and falling player

@@ -7,6 +7,7 @@ from settings import (
     JUMP_ENEMY_POWER_MIN, JUMP_ENEMY_POWER_MAX,
     JUMP_ENEMY_INTERVAL_MIN, JUMP_ENEMY_INTERVAL_MAX,
     GRAVITY, GOAL_X,
+    PITS, PIT_WIDTH,
 )
 
 
@@ -47,6 +48,15 @@ class Enemy(pygame.sprite.Sprite):
             self.direction = -1
         elif self.rect.x < self.origin_x - ENEMY_PATROL_RANGE:
             self.direction = 1
+        # Stop at pit edges (only when actually at the edge)
+        for px in PITS:
+            pit_right = px + PIT_WIDTH
+            if self.direction == 1 and self.rect.right >= px and self.rect.left < px:
+                self.rect.right = px
+                self.direction = -1
+            elif self.direction == -1 and self.rect.left <= pit_right and self.rect.right > pit_right:
+                self.rect.left = pit_right
+                self.direction = 1
 
 
 class JumpingEnemy(pygame.sprite.Sprite):
