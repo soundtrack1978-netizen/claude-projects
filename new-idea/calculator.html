@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>計算機</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  }
+  .calculator {
+    width: 320px;
+    background: #000;
+    border-radius: 20px;
+    padding: 16px;
+  }
+  .display {
+    color: #fff;
+    font-size: 48px;
+    font-weight: 300;
+    text-align: right;
+    padding: 20px 12px 12px;
+    min-height: 80px;
+    word-break: break-all;
+    overflow: hidden;
+  }
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  button {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    transition: filter 0.1s;
+    font-family: inherit;
+  }
+  button:active { filter: brightness(1.4); }
+  .num   { background: #fff; color: #000; }
+  .op    { background: #fff; color: #000; font-size: 28px; }
+  .op.active { background: #e0e0e0; color: #000; }
+  .func  { background: #fff; color: #000; }
+  .zero  {
+    width: 100%;
+    border-radius: 32px;
+    grid-column: span 2;
+    text-align: left;
+    padding-left: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="calculator">
+  <div class="display" id="display">0</div>
+  <div class="buttons">
+    <button class="func" onclick="pressFunc('C')">C</button>
+    <button class="func" onclick="pressFunc('±')">±</button>
+    <button class="func" onclick="pressFunc('%')">%</button>
+    <button class="op" data-op="/" onclick="pressOp('/')">÷</button>
+
+    <button class="num" onclick="pressNum('7')">7</button>
+    <button class="num" onclick="pressNum('8')">8</button>
+    <button class="num" onclick="pressNum('9')">9</button>
+    <button class="op" data-op="*" onclick="pressOp('*')">×</button>
+
+    <button class="num" onclick="pressNum('4')">4</button>
+    <button class="num" onclick="pressNum('5')">5</button>
+    <button class="num" onclick="pressNum('6')">6</button>
+    <button class="op" data-op="-" onclick="pressOp('-')">−</button>
+
+    <button class="num" onclick="pressNum('1')">1</button>
+    <button class="num" onclick="pressNum('2')">2</button>
+    <button class="num" onclick="pressNum('3')">3</button>
+    <button class="op" data-op="+" onclick="pressOp('+')">+</button>
+
+    <button class="num zero" onclick="pressNum('0')">0</button>
+    <button class="num" onclick="pressNum('.')">.</button>
+    <button class="op" onclick="pressEqual()">=</button>
+  </div>
+</div>
+
+<script>
+  let current = "0";
+  let previous = null;
+  let operator = null;
+  let resetNext = false;
+  const display = document.getElementById("display");
+
+  function updateDisplay(value) {
+    display.textContent = value;
+    // 長い数字はフォントサイズを縮小
+    display.style.fontSize = value.length > 9 ? "32px" : "48px";
+  }
+
+  function pressNum(n) {
+    clearActiveOp();
+    if (resetNext) {
+      current = "0";
+      resetNext = false;
+    }
+    if (n === "." && current.includes(".")) return;
+    if (current === "0" && n !== ".") {
+      current = n;
+    } else {
+      current += n;
+    }
+    updateDisplay(current);
+  }
+
+  function pressOp(op) {
+    if (operator && !resetNext) {
+      calculate();
+    }
+    previous = parseFloat(current);
+    operator = op;
+    resetNext = true;
+    highlightOp(op);
+  }
+
+  function pressEqual() {
+    clearActiveOp();
+    if (operator === null) return;
+    calculate();
+    operator = null;
+    previous = null;
+  }
+
+  function calculate() {
+    const a = previous;
+    const b = parseFloat(current);
+    let result;
+    switch (operator) {
+      case "+": result = a + b; break;
+      case "-": result = a - b; break;
+      case "*": result = a * b; break;
+      case "/": result = b === 0 ? "エラー" : a / b; break;
+      default: return;
+    }
+    if (result === "エラー") {
+      current = "0";
+      updateDisplay("エラー");
+    } else {
+      // 浮動小数点の丸め
+      result = Math.round(result * 1e12) / 1e12;
+      current = String(result);
+      updateDisplay(formatNumber(result));
+    }
+    resetNext = true;
+  }
+
+  function pressFunc(fn) {
+    clearActiveOp();
+    if (fn === "C") {
+      current = "0";
+      previous = null;
+      operator = null;
+      resetNext = false;
+      updateDisplay("0");
+    } else if (fn === "±") {
+      if (current !== "0") {
+        current = current.startsWith("-") ? current.slice(1) : "-" + current;
+        updateDisplay(formatNumber(parseFloat(current)));
+      }
+    } else if (fn === "%") {
+      current = String(parseFloat(current) / 100);
+      updateDisplay(formatNumber(parseFloat(current)));
+      resetNext = true;
+    }
+  }
+
+  function formatNumber(n) {
+    if (Number.isInteger(n) && Math.abs(n) < 1e15) {
+      return n.toLocaleString("ja-JP");
+    }
+    return String(n);
+  }
+
+  function highlightOp(op) {
+    document.querySelectorAll(".op").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.op === op);
+    });
+  }
+
+  function clearActiveOp() {
+    document.querySelectorAll(".op").forEach(btn => btn.classList.remove("active"));
+  }
+
+  // キーボード対応
+  document.addEventListener("keydown", (e) => {
+    if (e.key >= "0" && e.key <= "9" || e.key === ".") pressNum(e.key);
+    else if (e.key === "+" || e.key === "-" || e.key === "*" || e.key === "/") pressOp(e.key);
+    else if (e.key === "Enter" || e.key === "=") pressEqual();
+    else if (e.key === "Escape") pressFunc("C");
+    else if (e.key === "%") pressFunc("%");
+  });
+</script>
+
+</body>
+</html>
