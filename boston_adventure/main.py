@@ -2,9 +2,10 @@ import sys
 import pygame
 from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
-    SKY_BLUE, GROUND_GREEN, GROUND_HEIGHT,
+    SKY_BLUE, GROUND_GREEN, GROUND_HEIGHT, CAMERA_OFFSET_X,
 )
 from player import Player
+from background import Background
 
 
 class Game:
@@ -15,6 +16,8 @@ class Game:
         self.clock = pygame.time.Clock()
         self.player = Player()
         self.player_group = pygame.sprite.GroupSingle(self.player)
+        self.background = Background()
+        self.camera_x = 0
 
     def run(self):
         while True:
@@ -31,15 +34,20 @@ class Game:
 
     def _update(self):
         self.player_group.update()
+        # Camera follows player
+        self.camera_x = max(0, self.player.rect.x - CAMERA_OFFSET_X)
 
     def _draw(self):
-        # Sky
+        # 1. Sky
         self.screen.fill(SKY_BLUE)
-        # Ground
+        # 2. Clouds (parallax) + 3. Trees
+        self.background.draw(self.screen, self.camera_x)
+        # 4. Ground
         ground_rect = pygame.Rect(0, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT)
         pygame.draw.rect(self.screen, GROUND_GREEN, ground_rect)
-        # Player
-        self.player_group.draw(self.screen)
+        # 5. Player (foreground)
+        screen_x = self.player.rect.x - self.camera_x
+        self.screen.blit(self.player.image, (screen_x, self.player.rect.y))
 
         pygame.display.flip()
 

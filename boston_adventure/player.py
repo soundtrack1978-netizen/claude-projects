@@ -13,7 +13,8 @@ class Player(pygame.sprite.Sprite):
         base_dir = os.path.dirname(__file__)
         img_path = os.path.join(base_dir, "assets", "lucas.png")
         raw = pygame.image.load(img_path).convert_alpha()
-        self.image = pygame.transform.scale(raw, (PLAYER_WIDTH, PLAYER_HEIGHT))
+        scaled = pygame.transform.scale(raw, (PLAYER_WIDTH, PLAYER_HEIGHT))
+        self.image = pygame.transform.flip(scaled, True, False)
         self.rect = self.image.get_rect()
         self.ground_y = SCREEN_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT
         self.rect.x = 100
@@ -24,10 +25,10 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         keys = pygame.key.get_pressed()
 
-        # Horizontal movement
-        if keys[pygame.K_LEFT] and self.rect.left > 0:
+        # Horizontal movement (world coordinates, no screen limit)
+        if keys[pygame.K_LEFT] and self.rect.x > 0:
             self.rect.x -= PLAYER_SPEED
-        if keys[pygame.K_RIGHT] and self.rect.right < SCREEN_WIDTH:
+        if keys[pygame.K_RIGHT]:
             self.rect.x += PLAYER_SPEED
 
         # Jump
