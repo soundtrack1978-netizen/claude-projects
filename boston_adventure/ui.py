@@ -22,10 +22,16 @@ def draw_heart(surface, x, y, size):
 
 def draw_lives(surface, lives):
     """Draw heart icons at top-left of screen."""
-    for i in range(lives):
-        hx = 20 + i * (HEART_SIZE + 8)
-        hy = 20
-        draw_heart(surface, hx, hy, HEART_SIZE)
+    if lives <= 10:
+        for i in range(lives):
+            hx = 20 + i * (HEART_SIZE + 8)
+            hy = 20
+            draw_heart(surface, hx, hy, HEART_SIZE)
+    else:
+        draw_heart(surface, 20, 20, HEART_SIZE)
+        font = pygame.font.SysFont(None, 24)
+        text = font.render(f"x{lives}", True, WHITE)
+        surface.blit(text, (20 + HEART_SIZE + 4, 14))
 
 
 def draw_game_over(surface):

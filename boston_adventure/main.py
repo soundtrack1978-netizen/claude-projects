@@ -1,15 +1,20 @@
 import sys
 import pygame
+import random
 from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
     SKY_BLUE, GROUND_GREEN, GROUND_HEIGHT, CAMERA_OFFSET_X,
     STOMP_BOUNCE, PLAYER_LIVES, GRAVITY, BLACK, WHITE,
     DEATH_BOUNCE, DEATH_ROTATION_SPEED, BLACKOUT_DURATION,
     KNOCKBACK_DISTANCE, KNOCKBACK_SPEED, KNOCKBACK_JUMP,
+    HEART_DROP_CHANCE,
 )
 from player import Player
 from background import Background
 from enemy import create_enemies
+from goal import Goal
+from item import HeartItem
+from effect import SparkleEffect
 from ui import draw_lives, draw_game_over
 
 
@@ -23,6 +28,10 @@ class Game:
         self.player_group = pygame.sprite.GroupSingle(self.player)
         self.background = Background()
         self.enemies = create_enemies()
+        self.goal = Goal()
+        self.goal_group = pygame.sprite.GroupSingle(self.goal)
+        self.items = pygame.sprite.Group()
+        self.effects = []
         self.camera_x = 0
         self.lives = PLAYER_LIVES
         self.state = "playing"
@@ -44,13 +53,17 @@ class Game:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if self.state == "game_over" and event.key == pygame.K_r:
+                if self.state in ("game_over", "clear") and event.key == pygame.K_r:
                     self._restart()
 
     def _restart(self):
         self.player = Player()
         self.player_group = pygame.sprite.GroupSingle(self.player)
         self.enemies = create_enemies()
+        self.goal = Goal()
+        self.goal_group = pygame.sprite.GroupSingle(self.goal)
+        self.items = pygame.sprite.Group()
+        self.effects = []
         self.background = Background()
         self.camera_x = 0
         self.lives = PLAYER_LIVES
@@ -98,7 +111,23 @@ class Game:
             return
         self.player_group.update()
         self.enemies.update()
+        self.items.update()
         self._check_collisions()
+        # Item pickup
+        for item in pygame.sprite.spritecollide(self.player, self.items, False):
+            if not item.collected and item.pickable:
+                item.collect()
+                self.lives += 1
+                self.effects.append(SparkleEffect(
+                    self.player.rect.centerx, self.player.rect.centery,
+                ))
+        # Update effects
+        for effect in self.effects:
+            effect.update()
+        self.effects = [e for e in self.effects if e.alive]
+        # Check goal
+        if pygame.sprite.spritecollide(self.player, self.goal_group, False):
+            self.state = "clear"
         # Camera follows player
         self.camera_x = max(0, self.player.rect.x - CAMERA_OFFSET_X)
 
@@ -116,6 +145,9 @@ class Game:
         for enemy in hits:
             # Stomp: player is falling and feet are above enemy's mid-point
             if self.player.vel_y > 0 and self.player.rect.bottom <= enemy.rect.centery + 5:
+                # Random heart drop
+                if random.random() < HEART_DROP_CHANCE:
+                    self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
                 enemy.kill()
                 self.player.vel_y = STOMP_BOUNCE
             elif not self.player.invincible:
@@ -142,7 +174,17 @@ class Game:
         # 4. Ground
         ground_rect = pygame.Rect(0, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT)
         pygame.draw.rect(self.screen, GROUND_GREEN, ground_rect)
-        # 5. Enemies
+        # 5. Goal
+        gx = self.goal.rect.x - self.camera_x
+        if -self.goal.rect.width < gx < SCREEN_WIDTH + self.goal.rect.width:
+            self.screen.blit(self.goal.image, (gx, self.goal.rect.y))
+        # 6. Items
+        for item in self.items:
+            if item.visible:
+                ix = item.rect.x - self.camera_x
+                if -item.rect.width < ix < SCREEN_WIDTH + item.rect.width:
+                    self.screen.blit(item.image, (ix, item.rect.y))
+        # 7. Enemies
         for enemy in self.enemies:
             ex = enemy.rect.x - self.camera_x
             if -enemy.rect.width < ex < SCREEN_WIDTH + enemy.rect.width:
@@ -169,7 +211,10 @@ class Game:
                 self.screen.blit(rotated, rot_rect)
             else:
                 self.screen.blit(self.player.image, (screen_x, self.player.rect.y))
-        # 7. HUD (lives)
+        # 7. Effects (sparkles)
+        for effect in self.effects:
+            effect.draw(self.screen, self.camera_x)
+        # 8. HUD (lives)
         draw_lives(self.screen, self.lives)
         # 8. Blackout screen
         if self.state == "blackout":
@@ -179,7 +224,19 @@ class Game:
             cx = SCREEN_WIDTH // 2 - text.get_width() // 2
             cy = SCREEN_HEIGHT // 2 - text.get_height() // 2
             self.screen.blit(text, (cx, cy))
-        # 9. Game over overlay (restart prompt)
+        # 9. Stage clear
+        if self.state == "clear":
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            self.screen.blit(overlay, (0, 0))
+            font_big = pygame.font.SysFont(None, 64)
+            font_small = pygame.font.SysFont(None, 28)
+            clear_text = font_big.render("STAGE CLEAR!", True, (255, 215, 0))
+            prompt = font_small.render("Press R to Restart", True, WHITE)
+            cx = SCREEN_WIDTH // 2
+            self.screen.blit(clear_text, (cx - clear_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
+            self.screen.blit(prompt, (cx - prompt.get_width() // 2, SCREEN_HEIGHT // 2 + 20))
+        # 10. Game over overlay (restart prompt)
         if self.state == "game_over":
             draw_game_over(self.screen)
 
