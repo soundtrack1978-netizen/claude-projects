@@ -16,7 +16,7 @@ from enemy import create_enemies
 from goal import Goal
 from item import HeartItem
 from wall import Wall
-from effect import SparkleEffect
+from effect import SparkleEffect, GasEffect
 from ui import draw_lives, draw_game_over
 
 
@@ -123,6 +123,17 @@ class Game:
         self.enemies.update()
         self.items.update()
         self._check_collisions()
+        # Fart attack
+        if self.player.attacking:
+            self.player.attacking = False
+            gas = GasEffect(self.player.rect.left, self.player.rect.centery)
+            self.effects.append(gas)
+            # Hit enemies in gas range
+            for enemy in list(self.enemies):
+                if gas.hit_rect.colliderect(enemy.rect):
+                    if random.random() < HEART_DROP_CHANCE:
+                        self.items.add(HeartItem(enemy.rect.centerx, enemy.rect.top))
+                    enemy.kill()
         # Item pickup
         for item in pygame.sprite.spritecollide(self.player, self.items, False):
             if not item.collected and item.pickable:

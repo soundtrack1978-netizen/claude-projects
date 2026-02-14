@@ -5,6 +5,7 @@ from settings import (
     GRAVITY, JUMP_POWER, DOUBLE_JUMP_POWER, MAX_JUMPS,
     SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
     INVINCIBLE_DURATION, BLINK_INTERVAL,
+    ATTACK_COOLDOWN,
 )
 
 
@@ -29,6 +30,9 @@ class Player(pygame.sprite.Sprite):
         self.invincible = False
         self.invincible_start = 0
         self.visible = True
+        self.attacking = False
+        self.last_attack_time = 0
+        self.down_pressed_last = False
 
     def update(self, walls=None):
         keys = pygame.key.get_pressed()
@@ -79,6 +83,15 @@ class Player(pygame.sprite.Sprite):
             self.vel_y = 0
             self.on_ground = True
             self.jump_count = 0
+
+        # Attack (down key, with cooldown)
+        down_now = keys[pygame.K_DOWN]
+        now = pygame.time.get_ticks()
+        if down_now and not self.down_pressed_last:
+            if now - self.last_attack_time >= ATTACK_COOLDOWN:
+                self.attacking = True
+                self.last_attack_time = now
+        self.down_pressed_last = down_now
 
         # Invincibility timer and blink
         if self.invincible:
