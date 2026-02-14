@@ -3,6 +3,7 @@ import pygame
 from settings import (
     PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
     GRAVITY, JUMP_POWER, SCREEN_WIDTH, SCREEN_HEIGHT, GROUND_HEIGHT,
+    INVINCIBLE_DURATION, BLINK_INTERVAL,
 )
 
 
@@ -22,6 +23,9 @@ class Player(pygame.sprite.Sprite):
         self.vel_y = 0
         self.on_ground = True
         self.start_x = 100
+        self.invincible = False
+        self.invincible_start = 0
+        self.visible = True
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -47,8 +51,15 @@ class Player(pygame.sprite.Sprite):
             self.vel_y = 0
             self.on_ground = True
 
-    def reset_position(self):
-        self.rect.x = self.start_x
-        self.rect.y = self.ground_y
-        self.vel_y = 0
-        self.on_ground = True
+        # Invincibility timer and blink
+        if self.invincible:
+            elapsed = pygame.time.get_ticks() - self.invincible_start
+            if elapsed >= INVINCIBLE_DURATION:
+                self.invincible = False
+                self.visible = True
+            else:
+                self.visible = (elapsed // BLINK_INTERVAL) % 2 == 0
+
+    def start_invincible(self):
+        self.invincible = True
+        self.invincible_start = pygame.time.get_ticks()

@@ -3,11 +3,12 @@ import pygame
 from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
     SKY_BLUE, GROUND_GREEN, GROUND_HEIGHT, CAMERA_OFFSET_X,
-    STOMP_BOUNCE,
+    STOMP_BOUNCE, PLAYER_LIVES,
 )
 from player import Player
 from background import Background
 from enemy import create_enemies
+from ui import draw_lives, draw_game_over
 
 
 class Game:
@@ -21,6 +22,8 @@ class Game:
         self.background = Background()
         self.enemies = create_enemies()
         self.camera_x = 0
+        self.lives = PLAYER_LIVES
+        self.state = "playing"
 
     def run(self):
         while True:
@@ -34,8 +37,22 @@ class Game:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if self.state == "game_over" and event.key == pygame.K_r:
+                    self._restart()
+
+    def _restart(self):
+        self.player = Player()
+        self.player_group = pygame.sprite.GroupSingle(self.player)
+        self.enemies = create_enemies()
+        self.background = Background()
+        self.camera_x = 0
+        self.lives = PLAYER_LIVES
+        self.state = "playing"
 
     def _update(self):
+        if self.state != "playing":
+            return
         self.player_group.update()
         self.enemies.update()
         self._check_collisions()
@@ -49,9 +66,13 @@ class Game:
             if self.player.vel_y > 0 and self.player.rect.bottom <= enemy.rect.centery + 5:
                 enemy.kill()
                 self.player.vel_y = STOMP_BOUNCE
-            else:
-                # Hit from side/below: reset player position
-                self.player.reset_position()
+            elif not self.player.invincible:
+                # Hit from side/below: lose a life, start invincibility
+                self.lives -= 1
+                if self.lives <= 0:
+                    self.state = "game_over"
+                else:
+                    self.player.start_invincible()
 
     def _draw(self):
         # 1. Sky
@@ -66,9 +87,15 @@ class Game:
             ex = enemy.rect.x - self.camera_x
             if -enemy.rect.width < ex < SCREEN_WIDTH + enemy.rect.width:
                 self.screen.blit(enemy.image, (ex, enemy.rect.y))
-        # 6. Player (foreground)
-        screen_x = self.player.rect.x - self.camera_x
-        self.screen.blit(self.player.image, (screen_x, self.player.rect.y))
+        # 6. Player (foreground, blink when invincible)
+        if self.player.visible:
+            screen_x = self.player.rect.x - self.camera_x
+            self.screen.blit(self.player.image, (screen_x, self.player.rect.y))
+        # 7. HUD (lives)
+        draw_lives(self.screen, self.lives)
+        # 8. Game over overlay
+        if self.state == "game_over":
+            draw_game_over(self.screen)
 
         pygame.display.flip()
 
