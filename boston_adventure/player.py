@@ -21,6 +21,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = self.ground_y
         self.vel_y = 0
         self.on_ground = True
+        self.start_x = 100
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -45,3 +46,9 @@ class Player(pygame.sprite.Sprite):
             self.rect.y = self.ground_y
             self.vel_y = 0
             self.on_ground = True
+
+    def reset_position(self):
+        self.rect.x = self.start_x
+        self.rect.y = self.ground_y
+        self.vel_y = 0
+        self.on_ground = True
