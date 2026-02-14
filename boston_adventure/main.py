@@ -27,6 +27,7 @@ class Game:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Boston Terrier Adventure")
         self.clock = pygame.time.Clock()
+        self.state = "title"
         self.player = Player()
         self.player_group = pygame.sprite.GroupSingle(self.player)
         self.background = Background()
@@ -44,7 +45,6 @@ class Game:
         self.dying_enemies = []
         self.camera_x = 0
         self.lives = PLAYER_LIVES
-        self.state = "playing"
         self.knockback_remaining = 0
         self.knockback_dir = 0
         self.knockback_vel_y = 0
@@ -63,7 +63,9 @@ class Game:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if self.state == "celebrating":
+                if self.state == "title":
+                    self.state = "playing"
+                elif self.state == "celebrating":
                     self.state = "clear"
                 elif self.state in ("game_over", "clear") and event.key == pygame.K_r:
                     self._restart()
@@ -112,6 +114,8 @@ class Game:
         self.death_y = float(self.player.rect.y)
 
     def _update(self):
+        if self.state == "title":
+            return
         if self.state == "celebrating":
             self._update_celebration()
             return
@@ -131,7 +135,17 @@ class Game:
                 step = min(KNOCKBACK_SPEED, self.knockback_remaining)
                 self.player.rect.x += step * self.knockback_dir
                 self.player.rect.x = max(0, self.player.rect.x)
-                self.knockback_remaining -= step
+                # Stop at walls
+                for wall in self.wall_group:
+                    if self.player.rect.colliderect(wall.rect):
+                        if self.knockback_dir < 0:
+                            self.player.rect.left = wall.rect.right
+                        else:
+                            self.player.rect.right = wall.rect.left
+                        self.knockback_remaining = 0
+                        break
+                else:
+                    self.knockback_remaining -= step
             # Vertical (jump arc)
             self.knockback_vel_y += GRAVITY
             self.knockback_y += self.knockback_vel_y
@@ -257,7 +271,38 @@ class Game:
                 else:
                     self.player.start_invincible()
 
+    def _draw_title(self):
+        self.screen.fill((40, 40, 60))
+        cx = SCREEN_WIDTH // 2
+        # Title
+        font_title = pygame.font.SysFont(None, 48)
+        title = font_title.render("Boston Terrier Adventure", True, (255, 215, 0))
+        self.screen.blit(title, (cx - title.get_width() // 2, 100))
+        # Story text
+        font_story = pygame.font.SysFont(None, 22)
+        stories = [
+            "Lucas the Boston Terrier",
+            "got lost during his walk.",
+            "Dodge the cats and find",
+            "your way back home!",
+        ]
+        y = 160
+        for line in stories:
+            txt = font_story.render(line, True, WHITE)
+            self.screen.blit(txt, (cx - txt.get_width() // 2, y))
+            y += 26
+        # Prompt
+        font_prompt = pygame.font.SysFont(None, 24)
+        # Blink effect
+        if (pygame.time.get_ticks() // 500) % 2 == 0:
+            prompt = font_prompt.render("Press any key to Start", True, WHITE)
+            self.screen.blit(prompt, (cx - prompt.get_width() // 2, 340))
+
     def _draw(self):
+        if self.state == "title":
+            self._draw_title()
+            pygame.display.flip()
+            return
         # 1. Sky
         self.screen.fill(SKY_BLUE)
         # 2. Clouds (parallax) + 3. Trees
