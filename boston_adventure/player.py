@@ -30,14 +30,22 @@ class Player(pygame.sprite.Sprite):
         self.invincible_start = 0
         self.visible = True
 
-    def update(self):
+    def update(self, walls=None):
         keys = pygame.key.get_pressed()
 
         # Horizontal movement (world coordinates, no screen limit)
         if keys[pygame.K_LEFT] and self.rect.x > 0:
             self.rect.x -= PLAYER_SPEED
+            if walls:
+                for wall in walls:
+                    if self.rect.colliderect(wall.rect):
+                        self.rect.left = wall.rect.right
         if keys[pygame.K_RIGHT]:
             self.rect.x += PLAYER_SPEED
+            if walls:
+                for wall in walls:
+                    if self.rect.colliderect(wall.rect):
+                        self.rect.right = wall.rect.left
 
         # Jump (trigger on new press only, not hold)
         # Support both Space and Up arrow to avoid IME conflict
@@ -55,6 +63,15 @@ class Player(pygame.sprite.Sprite):
         # Gravity
         self.vel_y += GRAVITY
         self.rect.y += self.vel_y
+
+        # Land on wall top
+        if walls and self.vel_y > 0:
+            for wall in walls:
+                if self.rect.colliderect(wall.rect) and self.rect.bottom <= wall.rect.top + self.vel_y + 2:
+                    self.rect.bottom = wall.rect.top
+                    self.vel_y = 0
+                    self.on_ground = True
+                    self.jump_count = 0
 
         # Land on ground
         if self.rect.y >= self.ground_y:

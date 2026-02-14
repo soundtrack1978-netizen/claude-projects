@@ -8,12 +8,14 @@ from settings import (
     DEATH_BOUNCE, DEATH_ROTATION_SPEED, BLACKOUT_DURATION,
     KNOCKBACK_DISTANCE, KNOCKBACK_SPEED, KNOCKBACK_JUMP,
     HEART_DROP_CHANCE,
+    WALL1_X, WALL2_X, WALL_HEIGHT, WALL2_HEIGHT,
 )
 from player import Player
 from background import Background
 from enemy import create_enemies
 from goal import Goal
 from item import HeartItem
+from wall import Wall
 from effect import SparkleEffect
 from ui import draw_lives, draw_game_over
 
@@ -30,6 +32,10 @@ class Game:
         self.enemies = create_enemies()
         self.goal = Goal()
         self.goal_group = pygame.sprite.GroupSingle(self.goal)
+        self.wall_group = pygame.sprite.Group(
+            Wall(WALL1_X),
+            Wall(WALL2_X, WALL2_HEIGHT),
+        )
         self.items = pygame.sprite.Group()
         self.effects = []
         self.camera_x = 0
@@ -62,6 +68,10 @@ class Game:
         self.enemies = create_enemies()
         self.goal = Goal()
         self.goal_group = pygame.sprite.GroupSingle(self.goal)
+        self.wall_group = pygame.sprite.Group(
+            Wall(WALL1_X),
+            Wall(WALL2_X, WALL2_HEIGHT),
+        )
         self.items = pygame.sprite.Group()
         self.effects = []
         self.background = Background()
@@ -109,7 +119,7 @@ class Game:
             # Camera still follows during knockback
             self.camera_x = max(0, self.player.rect.x - CAMERA_OFFSET_X)
             return
-        self.player_group.update()
+        self.player.update(self.wall_group)
         self.enemies.update()
         self.items.update()
         self._check_collisions()
@@ -174,7 +184,12 @@ class Game:
         # 4. Ground
         ground_rect = pygame.Rect(0, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT)
         pygame.draw.rect(self.screen, GROUND_GREEN, ground_rect)
-        # 5. Goal
+        # 5. Walls
+        for wall in self.wall_group:
+            wx = wall.rect.x - self.camera_x
+            if -wall.rect.width < wx < SCREEN_WIDTH + wall.rect.width:
+                self.screen.blit(wall.image, (wx, wall.rect.y))
+        # 6. Goal
         gx = self.goal.rect.x - self.camera_x
         if -self.goal.rect.width < gx < SCREEN_WIDTH + self.goal.rect.width:
             self.screen.blit(self.goal.image, (gx, self.goal.rect.y))
